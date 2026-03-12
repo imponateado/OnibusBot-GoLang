@@ -1,8 +1,13 @@
 package main
 
-type Geometry struct {
+type PointGeometry struct {
 	Type        string    `json:"type"`
 	Coordinates []float64 `json:"coordinates"`
+}
+
+type LineStringGeometry struct {
+	Type        string      `json:"type"`
+	Coordinates [][]float64 `json:"coordinates"`
 }
 
 type UltimaPosicao struct {
@@ -17,7 +22,7 @@ type UltimaPosicao struct {
 type UltimaFeature struct {
 	Type         string         `json:"type"`
 	ID           string         `json:"id"`
-	Geometry     Geometry       `json:"geometry"`
+	Geometry     PointGeometry  `json:"geometry"`
 	GeometryName string         `json:"geometry_name"`
 	Properties   UltimaProperty `json:"properties"`
 }
@@ -42,17 +47,15 @@ type LinhasDeOnibus struct {
 }
 
 type LinhasFeature struct {
-	Type       string         `json:"type"`
-	ID         string         `json:"id"`
-	Geometry   Geometry       `json:"geometry"`
-	Properties LinhasProperty `json:"properties"`
+	Type       string             `json:"type"`
+	ID         string             `json:"id"`
+	Geometry   LineStringGeometry `json:"geometry"`
+	Properties LinhasProperty     `json:"properties"`
 }
 
 type LinhasProperty struct {
-	Linha        string `json:"cd_linha"`
-	Nome         string `json:"no_linha"`
-	IdOperadora  int    `json:"id_operadora"`
-	Cor          string `json:"cor_linha"`
+	ID    int    `json:"id_linha"`
+	Linha string `json:"lin_sentido"` // Usaremos isso para filtrar as linhas únicas por nome/ID se necessário
 }
 
 type NominatimResponse struct {

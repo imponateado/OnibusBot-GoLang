@@ -61,29 +61,22 @@ func (s *BotService) Start() {
 }
 
 func (s *BotService) UpdateData() error {
-	linhas, err := s.apiClient.GetLinhasDeOnibus()
+	posicao, err := s.apiClient.GetLinhasDeOnibus()
 	if err != nil {
+		log.Printf("Erro ao buscar linhas: %v", err)
 		return err
 	}
 	
 	s.mu.Lock()
 	s.linhasDisponiveis = nil
 	seen := make(map[string]bool)
-	for _, f := range linhas.Features {
-		l := f.Properties.Linha
+	for _, f := range posicao.Features {
+		l := f.Properties.Linha // cd_linha no UltimaPosicao
 		if l != "" && !seen[l] {
 			s.linhasDisponiveis = append(s.linhasDisponiveis, l)
 			seen[l] = true
 		}
 	}
-	s.mu.Unlock()
-
-	posicao, err := s.apiClient.GetUltimaPosicaoFrota()
-	if err != nil {
-		return err
-	}
-	
-	s.mu.Lock()
 	s.ultimaPosicao = s.CleanUltimaPosicao(posicao)
 	s.mu.Unlock()
 
@@ -113,11 +106,11 @@ func (s *BotService) HandleMessage(msg *tgbotapi.Message) {
 		s.mu.Unlock()
 
 		if up == nil {
-			s.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, "⚠️ Desculpe, o serviço está temporariamente indisponível."))
+			s.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, "⚠️ Desculpe, o serviço está temporariamente indisponível (dados não carregados)."))
 			return
 		}
 
-		s.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, "Olá! Digite o número da linha que você deseja acompanhar:"))
+		s.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, "Olá! Digite o número da linha que você deseja acompanhar (ex: 2210):"))
 		return
 	}
 
@@ -134,7 +127,12 @@ func (s *BotService) HandleMessage(msg *tgbotapi.Message) {
 
 	if len(linhasEncontradas) > 0 {
 		var rows [][]tgbotapi.InlineKeyboardButton
-		for _, l := range linhasEncontradas {
+		maxRows := 10 // Limitar para não estourar o Telegram
+		if len(linhasEncontradas) < maxRows {
+			maxRows = len(linhasEncontradas)
+		}
+		for i := 0; i < maxRows; i++ {
+			l := linhasEncontradas[i]
 			rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData(l, l),
 			))
@@ -195,7 +193,7 @@ func (s *BotService) HandleCallback(cb *tgbotapi.CallbackQuery) {
 	s.mu.Unlock()
 
 	if isLinha {
-		msgConfig := tgbotapi.NewMessage(chatID, "Escolha o sentido:")
+		msgConfig := tgbotapi.NewMessage(chatID, "Escolha o sentido (0=Ida, 1=Volta):")
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData("IDA", fmt.Sprintf("sentido_%s_0", callbackData)),
@@ -282,15 +280,8 @@ func (s *BotService) EnviarLocalizacoesDosOnibus(chatID int64, onibus []UltimaFe
 
 	for i := 0; i < max; i++ {
 		bus := onibus[i]
-		x := bus.Geometry.Coordinates[0]
-		y := bus.Geometry.Coordinates[1]
-		lat, lon := x, y
-
-		if !(x >= -90 && x <= 90 && y >= -180 && y <= 180) {
-			if (x >= 150000 && x <= 850000) && (y >= 0 && y <= 10000000) {
-				lat, lon = UTMToLatLon(x, y, 23, true)
-			}
-		}
+		// O Geoserver já retornou WGS84 (lat/lon)
+		lon, lat := bus.Geometry.Coordinates[0], bus.Geometry.Coordinates[1]
 
 		s.bot.Send(tgbotapi.NewLocation(chatID, lat, lon))
 		

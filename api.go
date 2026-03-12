@@ -17,41 +17,53 @@ func NewAPIClient() *APIClient {
 	}
 }
 
-func (c *APIClient) GetLinhasDeOnibus() (*LinhasDeOnibus, error) {
-	url := "https://geoserver.semob.df.gov.br/geoserver/semob/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=semob%3ALinhas%20de%20onibus&outputFormat=application%2Fjson"
+func (c *APIClient) GetLinhasDeOnibus() (*UltimaPosicao, error) {
+	// Usamos o mesmo endpoint da frota para pegar as linhas que estão ATIVAS no momento (que têm ônibus circulando)
+	// ou poderíamos usar "Horários das Linhas", mas a frota é mais garantido de ter cd_linha
+	url := "https://geoserver.semob.df.gov.br/geoserver/semob/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=semob%3Aultima_posicao&outputFormat=application%2Fjson"
 	resp, err := c.httpClient.Get(url)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("erro na requisição de linhas: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("status inesperado (linhas): %d", resp.StatusCode)
 	}
 
-	var data LinhasDeOnibus
+	contentType := resp.Header.Get("Content-Type")
+	if !strings.Contains(contentType, "application/json") {
+		return nil, fmt.Errorf("esperava application/json, recebeu %s", contentType)
+	}
+
+	var data UltimaPosicao
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("erro ao decodificar JSON de linhas: %v", err)
 	}
 
 	return &data, nil
 }
 
 func (c *APIClient) GetUltimaPosicaoFrota() (*UltimaPosicao, error) {
-	url := "https://geoserver.semob.df.gov.br/geoserver/semob/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=semob%3A%C3%9Altima%20posi%C3%A7%C3%A3o%20da%20frota&outputFormat=application%2Fjson"
+	url := "https://geoserver.semob.df.gov.br/geoserver/semob/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=semob%3Aultima_posicao&outputFormat=application%2Fjson"
 	resp, err := c.httpClient.Get(url)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("erro na requisição de frota: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("status inesperado (frota): %d", resp.StatusCode)
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if !strings.Contains(contentType, "application/json") {
+		return nil, fmt.Errorf("esperava application/json, recebeu %s", contentType)
 	}
 
 	var data UltimaPosicao
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("erro ao decodificar JSON de frota: %v", err)
 	}
 
 	return &data, nil
