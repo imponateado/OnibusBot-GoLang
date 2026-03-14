@@ -16,7 +16,7 @@ func main() {
 		log.Fatal("BOT_TOKEN não configurado no ambiente ou .env")
 	}
 
-	version := "1.0.8-go"
+	version := "1.0.9-go"
 	
 	service, err := NewBotService(token, version)
 	if err != nil {

@@ -52,11 +52,13 @@ func (s *BotService) Start() {
 	go s.DataUpdateLoop()
 
 	for update := range updates {
-		if update.Message != nil {
-			s.HandleMessage(update.Message)
-		} else if update.CallbackQuery != nil {
-			s.HandleCallback(update.CallbackQuery)
-		}
+		go func(u tgbotapi.Update) {
+			if u.Message != nil {
+				s.HandleMessage(u.Message)
+			} else if u.CallbackQuery != nil {
+				s.HandleCallback(u.CallbackQuery)
+			}
+		}(update)
 	}
 }
 
@@ -208,9 +210,9 @@ func (s *BotService) HandleCallback(cb *tgbotapi.CallbackQuery) {
 
 func (s *BotService) ProcessAndSendBusStatus(chatID int64, linha, sentido string) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	if s.ultimaPosicao == nil {
+		s.mu.Unlock()
 		s.bot.Send(tgbotapi.NewMessage(chatID, "⚠️ Desculpe, o serviço está temporariamente indisponível."))
 		return
 	}
@@ -227,11 +229,13 @@ func (s *BotService) ProcessAndSendBusStatus(chatID int64, linha, sentido string
 	}
 
 	if jaExiste {
+		s.mu.Unlock()
 		s.bot.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("Já foi encontrado uma inscrição pra linha %s!", linha)))
 		return
 	}
 
 	if count >= 10 {
+		s.mu.Unlock()
 		msg := tgbotapi.NewMessage(chatID, "🚫 Você atingiu o limite máximo de 10 linhas monitoradas!\n\nPara adicionar uma nova linha, primeiro cancele algumas das existentes.")
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
@@ -257,6 +261,7 @@ func (s *BotService) ProcessAndSendBusStatus(chatID int64, linha, sentido string
 			onibus = append(onibus, f)
 		}
 	}
+	s.mu.Unlock()
 
 	if len(onibus) == 0 {
 		msg := tgbotapi.NewMessage(chatID, "As localizações dos ônibus serão enviadas quando algum ônibus em curso for encontrado.\n\nClique no botão abaixo quando não quiser ser mais notificado:")
