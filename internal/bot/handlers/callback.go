@@ -63,6 +63,21 @@ func (h *CallbackHandler) Handle(bot *tgbotapi.BotAPI, update tgbotapi.Update) e
 	default:
 		// Se for apenas o nome da linha
 		if h.Service.IsLinhaValida(data) {
+			direcoes := h.Service.GetActiveDirections(data)
+			
+			// Se houver apenas UM sentido ativo, inscrevemos direto!
+			if len(direcoes) == 1 {
+				sentido := direcoes[0]
+				label := "IDA (0)"
+				if sentido == "1" {
+					label = "VOLTA (1)"
+				}
+				bot.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("🚌 *Linha %s:* Detectado apenas sentido único (%s). Iniciando rastreamento...", data, label)))
+				h.ProcessSubscription(bot, chatID, data, sentido, false)
+				return nil
+			}
+
+			// Se houver 2 sentidos (ou nenhum por erro momentâneo), perguntamos
 			msgConfig := tgbotapi.NewMessage(chatID, "Escolha o sentido (0=Ida, 1=Volta):")
 			keyboard := tgbotapi.NewInlineKeyboardMarkup(
 				tgbotapi.NewInlineKeyboardRow(

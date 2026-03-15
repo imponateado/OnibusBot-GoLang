@@ -125,6 +125,28 @@ func (s *BusService) IsLinhaValida(linha string) bool {
 	return false
 }
 
+func (s *BusService) GetActiveDirections(linha string) []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
+	if s.ultimaPosicao == nil {
+		return nil
+	}
+
+	seen := make(map[string]bool)
+	var res []string
+	for _, f := range s.ultimaPosicao.Features {
+		if strings.EqualFold(f.Properties.Linha, linha) {
+			snt := f.Properties.Sentido
+			if snt != "" && !seen[snt] {
+				seen[snt] = true
+				res = append(res, snt)
+			}
+		}
+	}
+	return res
+}
+
 func (s *BusService) GetGroupsList() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
