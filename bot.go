@@ -506,21 +506,46 @@ func (s *BotService) EnviarLocalizacoesDosOnibus(chatID int64, onibus []UltimaFe
 		max = 10
 	}
 
+	// Clusterização simples por proximidade de coordenadas (4 casas decimais ~11m)
+	type ClusterBus struct {
+		Lat      float64
+		Lon      float64
+		Prefixos []string
+	}
+	clusters := make(map[string]*ClusterBus)
+	var clusterKeys []string
+
+	for i := 0; i < max; i++ {
+		bus := onibus[i]
+		lat, lon := bus.Geometry.Coordinates[1], bus.Geometry.Coordinates[0]
+		key := fmt.Sprintf("%.4f,%.4f", lat, lon)
+		
+		if c, ok := clusters[key]; ok {
+			c.Prefixos = append(c.Prefixos, bus.Properties.Prefixo)
+		} else {
+			clusters[key] = &ClusterBus{
+				Lat:      lat,
+				Lon:      lon,
+				Prefixos: []string{bus.Properties.Prefixo},
+			}
+			clusterKeys = append(clusterKeys, key)
+		}
+	}
+
 	if lowDataMode {
-		// Modo Econômico: UMA única mensagem com todos os endereços
+		// Modo Econômico: UMA única mensagem com todos os endereços dos clusters
 		var text strings.Builder
 		text.WriteString(fmt.Sprintf("🚌 *Linha %s (%s)*\n\n", linha, sentido))
 		
-		for i := 0; i < max; i++ {
-			bus := onibus[i]
-			lon, lat := bus.Geometry.Coordinates[0], bus.Geometry.Coordinates[1]
-			
-			address, err := s.apiClient.GetAddressInfo(lat, lon, s.version)
+		for _, key := range clusterKeys {
+			c := clusters[key]
+			address, err := s.apiClient.GetAddressInfo(c.Lat, c.Lon, s.version)
 			if err != nil {
 				address = "Endereço não disponível"
 			}
 			
-			text.WriteString(fmt.Sprintf("📍 %s\n", address))
+			prefixosStr := strings.Join(c.Prefixos, ", ")
+			text.WriteString(fmt.Sprintf("📍 %s\n   (Ônibus: %s)\n", address, prefixosStr))
 		}
 
 		if len(onibus) > 10 {
@@ -531,20 +556,20 @@ func (s *BotService) EnviarLocalizacoesDosOnibus(chatID int64, onibus []UltimaFe
 		msg.ParseMode = "Markdown"
 		s.bot.Send(msg)
 	} else {
-		// Modo Padrão: Comportamento original (múltiplas localizações e mensagens)
-		for i := 0; i < max; i++ {
-			bus := onibus[i]
-			lon, lat := bus.Geometry.Coordinates[0], bus.Geometry.Coordinates[1]
-
-			s.bot.Send(tgbotapi.NewLocation(chatID, lat, lon))
+		// Modo Padrão: Enviar localizações únicas para cada cluster
+		for _, key := range clusterKeys {
+			c := clusters[key]
 			
-			address, err := s.apiClient.GetAddressInfo(lat, lon, s.version)
+			// Envia a localização (um pin no mapa serve para todos do cluster)
+			s.bot.Send(tgbotapi.NewLocation(chatID, c.Lat, c.Lon))
+			
+			address, err := s.apiClient.GetAddressInfo(c.Lat, c.Lon, s.version)
 			if err != nil {
 				address = "Endereço não encontrado"
 			}
 
-			s.bot.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("%s :: %s", linha, address)))
-			time.Sleep(1 * time.Second)
+			prefixosStr := strings.Join(c.Prefixos, ", ")
+			s.bot.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("%s (%s) :: %s", linha, prefixosStr, address)))
 		}
 
 		if len(onibus) > 10 {
