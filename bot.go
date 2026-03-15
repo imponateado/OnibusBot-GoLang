@@ -392,18 +392,93 @@ func (s *BotService) ProcessGroupSubscription(chatID int64, groupName, sentido s
 
 	s.bot.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("⏳ Iniciando rastreamento de %d linhas do grupo %s...", len(lines), groupName)))
 
+	var inscritas []string
+	var falhas []string
+
 	for _, linha := range lines {
-		s.ProcessAndSendBusStatusExt(chatID, linha, sentido, true)
+		// Tentamos inscrever
+		err := s.InscricaoEmLote(chatID, linha, sentido)
+		if err == nil {
+			inscritas = append(inscritas, linha)
+		} else {
+			falhas = append(falhas, fmt.Sprintf("%s (%v)", linha, err))
+		}
 	}
 
-	msg := tgbotapi.NewMessage(chatID, "✅ Inscrição em lote concluída!\n\nVocê será notificado a cada 2 minutos sobre todas essas linhas.\nPara parar tudo, use o botão abaixo:")
+	var text strings.Builder
+	text.WriteString(fmt.Sprintf("✅ *Grupo %s Concluído*\n\n", groupName))
+	
+	if len(inscritas) > 0 {
+		text.WriteString(fmt.Sprintf("📝 *Linhas Inscritas (%d):* %s\n", len(inscritas), strings.Join(inscritas, ", ")))
+	}
+	
+	if len(falhas) > 0 {
+		text.WriteString(fmt.Sprintf("\n⚠️ *Não foi possível inscrever:* %s\n", strings.Join(falhas, ", ")))
+	}
+
+	text.WriteString("\nO bot enviará localizações assim que encontrar ônibus circulando nestas linhas (sentido selecionado).")
+
+	msg := tgbotapi.NewMessage(chatID, text.String())
+	msg.ParseMode = "Markdown"
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("❌ Parar Todas as Notificações", fmt.Sprintf("stop_%d", chatID)),
+			tgbotapi.NewInlineKeyboardButtonData("❌ Parar Tudo", fmt.Sprintf("stop_%d", chatID)),
 		),
 	)
 	msg.ReplyMarkup = keyboard
 	s.bot.Send(msg)
+}
+
+func (s *BotService) InscricaoEmLote(chatID int64, linha, sentido string) error {
+	s.mu.Lock()
+
+	count := 0
+	jaExiste := false
+	for _, sub := range s.userSubscriptions {
+		if sub.ChatID == chatID {
+			count++
+			if sub.Linha == linha && sub.Sentido == sentido {
+				jaExiste = true
+			}
+		}
+	}
+
+	if jaExiste {
+		s.mu.Unlock()
+		return fmt.Errorf("já inscrito")
+	}
+
+	if count >= 10 {
+		s.mu.Unlock()
+		return fmt.Errorf("limite de 10 atingido")
+	}
+
+	s.userSubscriptions = append(s.userSubscriptions, UserSubscription{
+		ChatID:  chatID,
+		Linha:   linha,
+		Sentido: sentido,
+	})
+	s.mu.Unlock()
+	s.SaveSubscriptions()
+
+	// Tenta enviar localização inicial se houver ônibus
+	s.mu.Lock()
+	if s.ultimaPosicao != nil {
+		var onibus []UltimaFeature
+		for _, f := range s.ultimaPosicao.Features {
+			if strings.EqualFold(f.Properties.Linha, linha) && f.Properties.Sentido == sentido {
+				onibus = append(onibus, f)
+			}
+		}
+		s.mu.Unlock()
+		if len(onibus) > 0 {
+			s.EnviarLocalizacoesDosOnibus(chatID, onibus, linha, sentido, false)
+		}
+	} else {
+		s.mu.Unlock()
+	}
+
+	return nil
 }
 
 func (s *BotService) ProcessAndSendBusStatus(chatID int64, linha, sentido string) {
