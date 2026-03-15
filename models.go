@@ -77,4 +77,10 @@ type UserSubscription struct {
 	Linha                    string
 	Sentido                  string
 	JaRecebeuPrimeiraMensagem bool
+	LowDataMode              bool
+}
+
+type BusGroup struct {
+	Name   string
+	Lines  []string
 }
