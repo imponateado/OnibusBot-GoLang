@@ -6,11 +6,14 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 )
 
 type APIClient struct {
-	httpClient *http.Client
-	geoCache   sync.Map
+	httpClient      *http.Client
+	geoCache        sync.Map
+	mu              sync.Mutex
+	lastRequestTime time.Time
 }
 
 func NewAPIClient() *APIClient {
@@ -78,6 +81,20 @@ func (c *APIClient) GetAddressInfo(lat, lon float64, version string) (string, er
 		return val.(string), nil
 	}
 
+	// Rate limiting: apenas UMA requisição por vez à rede, com intervalo
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Recomeçar a verificação de cache após o lock, pois outra goroutine pode ter preenchido
+	if val, ok := c.geoCache.Load(cacheKey); ok {
+		return val.(string), nil
+	}
+
+	elapsed := time.Since(c.lastRequestTime)
+	if elapsed < 1100*time.Millisecond {
+		time.Sleep(1100*time.Millisecond - elapsed)
+	}
+
 	url := fmt.Sprintf("https://nominatim.openstreetmap.org/reverse?format=json&lat=%f&lon=%f", lat, lon)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -87,6 +104,7 @@ func (c *APIClient) GetAddressInfo(lat, lon float64, version string) (string, er
 	req.Header.Set("User-Agent", fmt.Sprintf("OnibusBot-Go/%s (leoteodoro0@hotmail.com)", version))
 
 	resp, err := c.httpClient.Do(req)
+	c.lastRequestTime = time.Now()
 	if err != nil {
 		return "", err
 	}
