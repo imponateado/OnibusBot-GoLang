@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"log"
@@ -13,7 +13,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func main() {
+func Run() {
 	_ = godotenv.Load()
 
 	token := os.Getenv("BOT_TOKEN")
