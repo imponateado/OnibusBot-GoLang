@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/leoteodoro/onibus-bot-go/internal/service"
@@ -24,15 +23,16 @@ func (h *GroupsHandler) Handle(bot *tgbotapi.BotAPI, update tgbotapi.Update) err
 		return nil
 	}
 
-	var text strings.Builder
-	text.WriteString("🚌 *Grupos de Ônibus Disponíveis:*\n\n")
+	var rows [][]tgbotapi.InlineKeyboardButton
 	for _, g := range groups {
-		text.WriteString(fmt.Sprintf("• %s\n", g))
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("🚌 %s", g), fmt.Sprintf("select_group_%s", g)),
+		))
 	}
-	text.WriteString("\n💡 Digite o nome de qualquer grupo acima para rastrear suas linhas.")
 
-	reply := tgbotapi.NewMessage(msg.Chat.ID, text.String())
+	reply := tgbotapi.NewMessage(msg.Chat.ID, "Selecione um grupo de ônibus abaixo para rastrear todas as suas linhas:")
 	reply.ParseMode = "Markdown"
+	reply.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(rows...)
 	bot.Send(reply)
 	return nil
 }

@@ -35,6 +35,25 @@ func (h *CallbackHandler) Handle(bot *tgbotapi.BotAPI, update tgbotapi.Update) e
 			h.ProcessSubscription(bot, chatID, parts[1], parts[2], false)
 		}
 
+	case strings.HasPrefix(data, "select_group_"):
+		parts := strings.Split(data, "_")
+		if len(parts) >= 3 {
+			groupName := parts[2]
+			lines := h.Service.GetGroup(groupName)
+			if len(lines) > 0 {
+				msgConfig := tgbotapi.NewMessage(chatID, fmt.Sprintf("Você selecionou o grupo *%s* (%d linhas).\n\nEscolha o sentido para rastrear todas de uma vez:", groupName, len(lines)))
+				msgConfig.ParseMode = "Markdown"
+				keyboard := tgbotapi.NewInlineKeyboardMarkup(
+					tgbotapi.NewInlineKeyboardRow(
+						tgbotapi.NewInlineKeyboardButtonData("IDA (0)", fmt.Sprintf("gsentido_%s_0", groupName)),
+						tgbotapi.NewInlineKeyboardButtonData("VOLTA (1)", fmt.Sprintf("gsentido_%s_1", groupName)),
+					),
+				)
+				msgConfig.ReplyMarkup = keyboard
+				bot.Send(msgConfig)
+			}
+		}
+
 	case strings.HasPrefix(data, "gsentido_"):
 		parts := strings.Split(data, "_")
 		if len(parts) >= 3 {

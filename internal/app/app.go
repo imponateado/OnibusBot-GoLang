@@ -54,6 +54,7 @@ func Run() {
 	router.Register("stop_", callbackHandler)
 	router.Register("sentido_", callbackHandler)
 	router.Register("gsentido_", callbackHandler)
+	router.Register("select_group_", callbackHandler)
 	router.Register("callback_default", callbackHandler)
 	
 	// Default search handler
