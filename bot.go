@@ -324,6 +324,7 @@ func (s *BotService) HandleCallback(cb *tgbotapi.CallbackQuery) {
 		}
 		s.userSubscriptions = newSubs
 		s.mu.Unlock()
+		s.SaveSubscriptions() // Persiste a remoção no arquivo!
 
 		s.bot.Send(tgbotapi.NewMessage(chatID, "✅ Todas as notificações foram canceladas!"))
 		log.Printf("Notificações canceladas para chat %d, %d inscrições removidas", chatID, removidos)
