@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"encoding/json"
@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"github.com/leoteodoro/onibus-bot-go/internal/domain"
 )
 
 type APIClient struct {
@@ -22,9 +23,7 @@ func NewAPIClient() *APIClient {
 	}
 }
 
-func (c *APIClient) GetLinhasDeOnibus() (*UltimaPosicao, error) {
-	// Usamos o mesmo endpoint da frota para pegar as linhas que estão ATIVAS no momento (que têm ônibus circulando)
-	// ou poderíamos usar "Horários das Linhas", mas a frota é mais garantido de ter cd_linha
+func (c *APIClient) GetLinhasDeOnibus() (*domain.UltimaPosicao, error) {
 	url := "https://geoserver.semob.df.gov.br/geoserver/semob/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=semob%3Aultima_posicao&outputFormat=application%2Fjson"
 	resp, err := c.httpClient.Get(url)
 	if err != nil {
@@ -41,7 +40,7 @@ func (c *APIClient) GetLinhasDeOnibus() (*UltimaPosicao, error) {
 		return nil, fmt.Errorf("esperava application/json, recebeu %s", contentType)
 	}
 
-	var data UltimaPosicao
+	var data domain.UltimaPosicao
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return nil, fmt.Errorf("erro ao decodificar JSON de linhas: %v", err)
 	}
@@ -49,7 +48,7 @@ func (c *APIClient) GetLinhasDeOnibus() (*UltimaPosicao, error) {
 	return &data, nil
 }
 
-func (c *APIClient) GetUltimaPosicaoFrota() (*UltimaPosicao, error) {
+func (c *APIClient) GetUltimaPosicaoFrota() (*domain.UltimaPosicao, error) {
 	url := "https://geoserver.semob.df.gov.br/geoserver/semob/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=semob%3Aultima_posicao&outputFormat=application%2Fjson"
 	resp, err := c.httpClient.Get(url)
 	if err != nil {
@@ -66,7 +65,7 @@ func (c *APIClient) GetUltimaPosicaoFrota() (*UltimaPosicao, error) {
 		return nil, fmt.Errorf("esperava application/json, recebeu %s", contentType)
 	}
 
-	var data UltimaPosicao
+	var data domain.UltimaPosicao
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return nil, fmt.Errorf("erro ao decodificar JSON de frota: %v", err)
 	}
@@ -75,17 +74,14 @@ func (c *APIClient) GetUltimaPosicaoFrota() (*UltimaPosicao, error) {
 }
 
 func (c *APIClient) GetAddressInfo(lat, lon float64, version string) (string, error) {
-	// Chave do cache: precisão de 4 casas decimais (~11 metros)
 	cacheKey := fmt.Sprintf("%.4f,%.4f", lat, lon)
 	if val, ok := c.geoCache.Load(cacheKey); ok {
 		return val.(string), nil
 	}
 
-	// Rate limiting: apenas UMA requisição por vez à rede, com intervalo
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Recomeçar a verificação de cache após o lock, pois outra goroutine pode ter preenchido
 	if val, ok := c.geoCache.Load(cacheKey); ok {
 		return val.(string), nil
 	}
@@ -114,7 +110,7 @@ func (c *APIClient) GetAddressInfo(lat, lon float64, version string) (string, er
 		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var data NominatimResponse
+	var data domain.NominatimResponse
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return "", err
 	}
@@ -135,7 +131,6 @@ func (c *APIClient) GetAddressInfo(lat, lon float64, version string) (string, er
 		address = "Endereço não disponível"
 	}
 
-	// Salva no cache
 	c.geoCache.Store(cacheKey, address)
 
 	return address, nil

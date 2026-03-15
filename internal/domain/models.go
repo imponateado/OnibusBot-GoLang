@@ -1,4 +1,4 @@
-package main
+package domain
 
 type PointGeometry struct {
 	Type        string    `json:"type"`
@@ -55,7 +55,7 @@ type LinhasFeature struct {
 
 type LinhasProperty struct {
 	ID    int    `json:"id_linha"`
-	Linha string `json:"lin_sentido"` // Usaremos isso para filtrar as linhas únicas por nome/ID se necessário
+	Linha string `json:"lin_sentido"`
 }
 
 type NominatimResponse struct {
