@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"fmt"
 	"log"
 	"strings"
 
@@ -33,19 +34,23 @@ func (r *Router) Register(command string, h Handler) {
 }
 
 func (r *Router) Route(update tgbotapi.Update) {
-	// Registro automático do usuário
+	// Registro automático do usuário e logging
 	var chatID int64
 	var username string
+	var logType string
 
 	if update.Message != nil {
 		chatID = update.Message.Chat.ID
 		username = update.Message.From.UserName
+		logType = fmt.Sprintf("Message: %s", update.Message.Text)
 	} else if update.CallbackQuery != nil {
 		chatID = update.CallbackQuery.Message.Chat.ID
 		username = update.CallbackQuery.From.UserName
+		logType = fmt.Sprintf("Callback: %s", update.CallbackQuery.Data)
 	}
 
 	if chatID != 0 {
+		log.Printf("[INFO] [%d] @%s -> %s", chatID, username, logType)
 		go r.userService.Register(chatID, username)
 	}
 

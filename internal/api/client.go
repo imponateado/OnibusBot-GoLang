@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -74,23 +75,32 @@ func (c *APIClient) GetUltimaPosicaoFrota() (*domain.UltimaPosicao, error) {
 }
 
 func (c *APIClient) GetAddressInfo(lat, lon float64, version string) (string, error) {
+	// Chave do cache: precisão de 4 casas decimais (~11 metros)
 	cacheKey := fmt.Sprintf("%.4f,%.4f", lat, lon)
 	if val, ok := c.geoCache.Load(cacheKey); ok {
+		log.Printf("[DEBUG] [OSM] Cache HIT para %s", cacheKey)
 		return val.(string), nil
 	}
 
+	// Rate limiting: apenas UMA requisição por vez à rede, com intervalo
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	// Recomeçar a verificação de cache após o lock, pois outra goroutine pode ter preenchido
 	if val, ok := c.geoCache.Load(cacheKey); ok {
+		log.Printf("[DEBUG] [OSM] Cache HIT (after lock) para %s", cacheKey)
 		return val.(string), nil
 	}
 
-	elapsed := time.Since(c.lastRequestTime)
-	if elapsed < 1100*time.Millisecond {
-		time.Sleep(1100*time.Millisecond - elapsed)
+	elapsedSinceLast := time.Since(c.lastRequestTime)
+	if elapsedSinceLast < 1100*time.Millisecond {
+		waitTime := 1100*time.Millisecond - elapsedSinceLast
+		log.Printf("[DEBUG] [OSM] Rate limiting em ação: esperando %v...", waitTime)
+		time.Sleep(waitTime)
 	}
 
+	log.Printf("[DEBUG] [OSM] Cache MISS. Consultando Nominatim para %.4f, %.4f...", lat, lon)
+	start := time.Now()
 	url := fmt.Sprintf("https://nominatim.openstreetmap.org/reverse?format=json&lat=%f&lon=%f", lat, lon)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -102,11 +112,13 @@ func (c *APIClient) GetAddressInfo(lat, lon float64, version string) (string, er
 	resp, err := c.httpClient.Do(req)
 	c.lastRequestTime = time.Now()
 	if err != nil {
+		log.Printf("[ERROR] [OSM] Falha na consulta Nominatim: %v", err)
 		return "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		log.Printf("[ERROR] [OSM] Status inesperado do Nominatim: %d", resp.StatusCode)
 		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
@@ -131,6 +143,9 @@ func (c *APIClient) GetAddressInfo(lat, lon float64, version string) (string, er
 		address = "Endereço não disponível"
 	}
 
+	log.Printf("[INFO] [OSM] Endereço obtido em %v: %s", time.Since(start), address)
+
+	// Salva no cache
 	c.geoCache.Store(cacheKey, address)
 
 	return address, nil

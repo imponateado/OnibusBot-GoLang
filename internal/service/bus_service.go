@@ -250,6 +250,10 @@ func (s *BusService) notificationLoop() {
 		copy(subs, s.userSubscriptions)
 		s.mu.Unlock()
 
+		if len(subs) > 0 {
+			log.Printf("[INFO] Iniciando ciclo de notificação para %d inscrições...", len(subs))
+		}
+
 		for _, sub := range subs {
 			onibus, lowMode := s.GetBusStatus(sub.ChatID, sub.Linha, sub.Sentido)
 			if len(onibus) > 0 {
@@ -291,6 +295,10 @@ func (s *BusService) NotifyBuses(chatID int64, onibus []domain.UltimaFeature, li
 			}
 			clusterKeys = append(clusterKeys, key)
 		}
+	}
+
+	if len(onibus) > len(clusterKeys) {
+		log.Printf("[DEBUG] Clustering para chat %d: %d ônibus reduzidos para %d localizações", chatID, len(onibus), len(clusterKeys))
 	}
 
 	if lowMode {
