@@ -26,12 +26,14 @@ func Run() {
 	// 1. Repositories
 	subsRepo := repository.NewJSONSubscriptionRepository("subscriptions.json")
 	groupsRepo := repository.NewCSVGroupRepository("groups.csv")
+	userRepo := repository.NewJSONUserRepository("users.json")
 
 	// 2. API Client
 	apiClient := api.NewAPIClient()
 
-	// 3. Service
+	// 3. Services
 	busService := service.NewBusService(version, apiClient, subsRepo, groupsRepo)
+	userService := service.NewUserService(userRepo)
 
 	// 4. Bot API
 	tgBot, err := tgbotapi.NewBotAPI(token)
@@ -40,7 +42,7 @@ func Run() {
 	}
 
 	// 5. Router & Handlers
-	router := bot.NewRouter(tgBot, busService)
+	router := bot.NewRouter(tgBot, busService, userService)
 	router.Register("/start", &handlers.StartHandler{Service: busService})
 	router.Register("oi", &handlers.StartHandler{Service: busService})
 	router.Register("/info", &handlers.InfoHandler{Version: version})

@@ -1,5 +1,13 @@
 package domain
 
+import "time"
+
+type RegisteredUser struct {
+	ChatID   int64     `json:"chat_id"`
+	Username string    `json:"username"`
+	JoinedAt time.Time `json:"joined_at"`
+}
+
 type PointGeometry struct {
 	Type        string    `json:"type"`
 	Coordinates []float64 `json:"coordinates"`

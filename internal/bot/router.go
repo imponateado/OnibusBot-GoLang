@@ -13,16 +13,18 @@ type Handler interface {
 }
 
 type Router struct {
-	bot      *tgbotapi.BotAPI
-	service  *service.BusService
-	handlers map[string]Handler
+	bot         *tgbotapi.BotAPI
+	busService  *service.BusService
+	userService *service.UserService
+	handlers    map[string]Handler
 }
 
-func NewRouter(bot *tgbotapi.BotAPI, s *service.BusService) *Router {
+func NewRouter(bot *tgbotapi.BotAPI, bs *service.BusService, us *service.UserService) *Router {
 	return &Router{
-		bot:      bot,
-		service:  s,
-		handlers: make(map[string]Handler),
+		bot:         bot,
+		busService:  bs,
+		userService: us,
+		handlers:    make(map[string]Handler),
 	}
 }
 
@@ -31,6 +33,22 @@ func (r *Router) Register(command string, h Handler) {
 }
 
 func (r *Router) Route(update tgbotapi.Update) {
+	// Registro automático do usuário
+	var chatID int64
+	var username string
+
+	if update.Message != nil {
+		chatID = update.Message.Chat.ID
+		username = update.Message.From.UserName
+	} else if update.CallbackQuery != nil {
+		chatID = update.CallbackQuery.Message.Chat.ID
+		username = update.CallbackQuery.From.UserName
+	}
+
+	if chatID != 0 {
+		go r.userService.Register(chatID, username)
+	}
+
 	if update.Message != nil {
 		r.handleMessage(update)
 	} else if update.CallbackQuery != nil {
