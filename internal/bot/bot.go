@@ -29,7 +29,24 @@ func NewTelegramBot(token string, s *service.BusService, r *Router) (*TelegramBo
 		token:   token,
 	}
 	s.SetNotifier(t)
+	t.setBotCommands()
 	return t, nil
+}
+
+func (t *TelegramBot) setBotCommands() {
+	commands := []tgbotapi.BotCommand{
+		{Command: "start", Description: "Iniciar o bot e ver instruções"},
+		{Command: "grupos", Description: "Listar grupos de ônibus disponíveis"},
+		{Command: "lowmode", Description: "Alternar modo de economia de dados (apenas texto)"},
+		{Command: "info", Description: "Ver versão e informações do bot"},
+	}
+
+	config := tgbotapi.NewSetMyCommands(commands...)
+	if _, err := t.bot.Request(config); err != nil {
+		log.Printf("Erro ao configurar comandos do bot: %v", err)
+	} else {
+		log.Printf("Comandos do bot registrados com sucesso no Telegram.")
+	}
 }
 
 func (t *TelegramBot) Start() {
