@@ -46,6 +46,7 @@ func Run() {
 	router.Register("/start", &handlers.StartHandler{Service: busService})
 	router.Register("oi", &handlers.StartHandler{Service: busService})
 	router.Register("/info", &handlers.InfoHandler{Version: version})
+	router.Register("/grupos", &handlers.GroupsHandler{Service: busService})
 	router.Register("/lowmode", &handlers.LowModeHandler{Service: busService})
 	
 	// Prefix-based handlers

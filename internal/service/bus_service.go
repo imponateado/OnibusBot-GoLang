@@ -125,6 +125,16 @@ func (s *BusService) IsLinhaValida(linha string) bool {
 	return false
 }
 
+func (s *BusService) GetGroupsList() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var res []string
+	for _, g := range s.busGroups {
+		res = append(res, g.Name)
+	}
+	return res
+}
+
 func (s *BusService) GetGroup(name string) []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
