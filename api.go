@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 )
 
 type APIClient struct {
 	httpClient *http.Client
+	geoCache   sync.Map
 }
 
 func NewAPIClient() *APIClient {
@@ -70,6 +72,12 @@ func (c *APIClient) GetUltimaPosicaoFrota() (*UltimaPosicao, error) {
 }
 
 func (c *APIClient) GetAddressInfo(lat, lon float64, version string) (string, error) {
+	// Chave do cache: precisão de 4 casas decimais (~11 metros)
+	cacheKey := fmt.Sprintf("%.4f,%.4f", lat, lon)
+	if val, ok := c.geoCache.Load(cacheKey); ok {
+		return val.(string), nil
+	}
+
 	url := fmt.Sprintf("https://nominatim.openstreetmap.org/reverse?format=json&lat=%f&lon=%f", lat, lon)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -104,9 +112,13 @@ func (c *APIClient) GetAddressInfo(lat, lon float64, version string) (string, er
 		parts = append(parts, data.Address.Suburb)
 	}
 
-	if len(parts) == 0 {
-		return "Endereço não disponível", nil
+	address := strings.Join(parts, " ")
+	if address == "" {
+		address = "Endereço não disponível"
 	}
 
-	return strings.Join(parts, " "), nil
+	// Salva no cache
+	c.geoCache.Store(cacheKey, address)
+
+	return address, nil
 }
