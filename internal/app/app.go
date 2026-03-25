@@ -21,6 +21,11 @@ func Run() {
 		log.Fatal("BOT_TOKEN não configurado")
 	}
 
+	geoapifyKey := os.Getenv("GEOAPIFY_API_KEY")
+	if geoapifyKey == "" {
+		log.Fatal("GEOAPIFY_API_KEY não configurado")
+	}
+
 	version := "1.1.0-go-layered"
 
 	// 1. Repositories
@@ -29,7 +34,7 @@ func Run() {
 	userRepo := repository.NewJSONUserRepository("users.json")
 
 	// 2. API Client
-	apiClient := api.NewAPIClient()
+	apiClient := api.NewAPIClient(geoapifyKey)
 
 	// 3. Services
 	busService := service.NewBusService(version, apiClient, subsRepo, groupsRepo)

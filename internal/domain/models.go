@@ -66,18 +66,20 @@ type LinhasProperty struct {
 	Linha string `json:"lin_sentido"`
 }
 
-type NominatimResponse struct {
-	DisplayName string `json:"display_name"`
-	Address     struct {
-		Road          string `json:"road"`
-		Neighbourhood string `json:"neighbourhood"`
-		Suburb        string `json:"suburb"`
-		City          string `json:"city"`
-		State         string `json:"state"`
-		Postcode      string `json:"postcode"`
-		Country       string `json:"country"`
-		CountryCode   string `json:"country_code"`
-	} `json:"address"`
+type GeoapifyResponse struct {
+	Results []GeoapifyResult `json:"results"`
+}
+
+type GeoapifyResult struct {
+	Street      string `json:"street"`
+	Suburb      string `json:"suburb"`
+	District    string `json:"district"`
+	City        string `json:"city"`
+	State       string `json:"state"`
+	Postcode    string `json:"postcode"`
+	Country     string `json:"country"`
+	CountryCode string `json:"country_code"`
+	Formatted   string `json:"formatted"`
 }
 
 type UserSubscription struct {
