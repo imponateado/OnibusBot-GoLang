@@ -3,17 +3,19 @@ package service
 import (
 	"fmt"
 	"log"
+	"math"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/leoteodoro/onibus-bot-go/internal/domain"
+	"github.com/leoteodoro/onibus-bot-go/pkg/utils"
 )
 
 type BusProvider interface {
 	GetLinhasDeOnibus() (*domain.UltimaPosicao, error)
 	GetUltimaPosicaoFrota() (*domain.UltimaPosicao, error)
-	GetAddressInfo(lat, lon float64, version string) (string, error)
+	GetParadasDeOnibus() (*domain.ParadasDeOnibus, error)
 }
 
 type Notifier interface {
@@ -29,6 +31,7 @@ type BusService struct {
 	busGroups         []domain.BusGroup
 	linhasDisponiveis []string
 	ultimaPosicao     *domain.UltimaPosicao
+	paradas           []domain.ParadaFeature
 	mu                sync.Mutex
 	version           string
 	notifier          Notifier
@@ -61,6 +64,20 @@ func (s *BusService) LoadData() {
 		log.Printf("Erro ao carregar grupos: %v", err)
 	}
 	s.busGroups = groups
+
+	paradas, err := s.provider.GetParadasDeOnibus()
+	if err != nil {
+		log.Printf("Erro ao carregar paradas: %v", err)
+	} else {
+		var ativas []domain.ParadaFeature
+		for _, p := range paradas.Features {
+			if p.Properties.Situacao == "ATIVA" && len(p.Geometry.Coordinates) >= 2 {
+				ativas = append(ativas, p)
+			}
+		}
+		s.paradas = ativas
+		log.Printf("[INFO] %d paradas ativas carregadas", len(ativas))
+	}
 }
 
 func (s *BusService) StartLoops() {
@@ -260,7 +277,28 @@ func (s *BusService) GetBusStatus(chatID int64, linha, sentido string) ([]domain
 }
 
 func (s *BusService) GetAddress(lat, lon float64) (string, error) {
-	return s.provider.GetAddressInfo(lat, lon, s.version)
+	s.mu.Lock()
+	paradas := s.paradas
+	s.mu.Unlock()
+
+	if len(paradas) == 0 {
+		return "Parada não disponível", nil
+	}
+
+	minDist := math.MaxFloat64
+	var nearest domain.ParadaFeature
+	for _, p := range paradas {
+		// Coordinates: [lon, lat] (GeoJSON format)
+		pLon := p.Geometry.Coordinates[0]
+		pLat := p.Geometry.Coordinates[1]
+		dist := utils.Haversine(lat, lon, pLat, pLon)
+		if dist < minDist {
+			minDist = dist
+			nearest = p
+		}
+	}
+
+	return nearest.Properties.Descricao, nil
 }
 
 // Loops internos

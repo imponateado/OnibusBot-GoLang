@@ -66,20 +66,20 @@ type LinhasProperty struct {
 	Linha string `json:"lin_sentido"`
 }
 
-type GeoapifyResponse struct {
-	Results []GeoapifyResult `json:"results"`
+type ParadasDeOnibus struct {
+	Type     string          `json:"type"`
+	Features []ParadaFeature `json:"features"`
 }
 
-type GeoapifyResult struct {
-	Street      string `json:"street"`
-	Suburb      string `json:"suburb"`
-	District    string `json:"district"`
-	City        string `json:"city"`
-	State       string `json:"state"`
-	Postcode    string `json:"postcode"`
-	Country     string `json:"country"`
-	CountryCode string `json:"country_code"`
-	Formatted   string `json:"formatted"`
+type ParadaFeature struct {
+	Geometry   PointGeometry  `json:"geometry"`
+	Properties ParadaProperty `json:"properties"`
+}
+
+type ParadaProperty struct {
+	Parada    string `json:"parada"`
+	Descricao string `json:"descricao"`
+	Situacao  string `json:"situacao"`
 }
 
 type UserSubscription struct {
