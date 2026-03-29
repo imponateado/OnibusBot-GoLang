@@ -27,8 +27,10 @@ type BusService struct {
 	provider          BusProvider
 	subsRepo          domain.SubscriptionRepository
 	groupsRepo        domain.GroupRepository
+	prefsRepo         domain.UserPrefsRepository
 	userSubscriptions []domain.UserSubscription
 	busGroups         []domain.BusGroup
+	lowModeUsers      map[int64]bool
 	linhasDisponiveis []string
 	ultimaPosicao     *domain.UltimaPosicao
 	paradas           []domain.ParadaFeature
@@ -37,12 +39,14 @@ type BusService struct {
 	notifier          Notifier
 }
 
-func NewBusService(version string, provider BusProvider, subsRepo domain.SubscriptionRepository, groupsRepo domain.GroupRepository) *BusService {
+func NewBusService(version string, provider BusProvider, subsRepo domain.SubscriptionRepository, groupsRepo domain.GroupRepository, prefsRepo domain.UserPrefsRepository) *BusService {
 	s := &BusService{
-		version:    version,
-		provider:   provider,
-		subsRepo:   subsRepo,
-		groupsRepo: groupsRepo,
+		version:      version,
+		provider:     provider,
+		subsRepo:     subsRepo,
+		groupsRepo:   groupsRepo,
+		prefsRepo:    prefsRepo,
+		lowModeUsers: make(map[int64]bool),
 	}
 	s.LoadData()
 	return s
@@ -64,6 +68,13 @@ func (s *BusService) LoadData() {
 		log.Printf("Erro ao carregar grupos: %v", err)
 	}
 	s.busGroups = groups
+
+	lowMode, err := s.prefsRepo.LoadLowMode()
+	if err != nil {
+		log.Printf("Erro ao carregar preferências: %v", err)
+	} else {
+		s.lowModeUsers = lowMode
+	}
 
 	paradas, err := s.provider.GetParadasDeOnibus()
 	if err != nil {
@@ -145,7 +156,7 @@ func (s *BusService) IsLinhaValida(linha string) bool {
 func (s *BusService) GetActiveDirections(linha string) []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	if s.ultimaPosicao == nil {
 		return nil
 	}
@@ -233,34 +244,26 @@ func (s *BusService) UnsubscribeAll(chatID int64) (int, error) {
 	return removidos, s.subsRepo.Save(subs)
 }
 
-func (s *BusService) ToggleLowMode(chatID int64) (bool, error) {
+func (s *BusService) ToggleLowMode(chatID int64) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	found := false
-	var currentMode bool
-	for i := range s.userSubscriptions {
-		if s.userSubscriptions[i].ChatID == chatID {
-			s.userSubscriptions[i].LowDataMode = !s.userSubscriptions[i].LowDataMode
-			currentMode = s.userSubscriptions[i].LowDataMode
-			found = true
-		}
+
+	current := true
+	if v, ok := s.lowModeUsers[chatID]; ok {
+		current = v
 	}
-	if !found {
-		return false, fmt.Errorf("sem inscrições")
-	}
-	return currentMode, s.subsRepo.Save(s.userSubscriptions)
+	s.lowModeUsers[chatID] = !current
+	s.prefsRepo.SaveLowMode(s.lowModeUsers)
+	return !current
 }
 
 func (s *BusService) GetBusStatus(chatID int64, linha, sentido string) ([]domain.UltimaFeature, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
-	lowDataMode := false
-	for _, sub := range s.userSubscriptions {
-		if sub.ChatID == chatID {
-			lowDataMode = sub.LowDataMode
-			break
-		}
+
+	lowDataMode := true
+	if v, ok := s.lowModeUsers[chatID]; ok {
+		lowDataMode = v
 	}
 
 	if s.ultimaPosicao == nil {
@@ -367,7 +370,7 @@ func (s *BusService) NotifyBuses(chatID int64, onibus []domain.UltimaFeature, li
 		for _, key := range clusterKeys {
 			c := clusters[key]
 			address, _ := s.GetAddress(c.Lat, c.Lon)
-			text.WriteString(fmt.Sprintf("📍 %s\n   (Ônibus: %s)\n", address, strings.Join(c.Prefixos, ", ")))
+			text.WriteString(fmt.Sprintf("Próximo à parada %s\n   (Ônibus: %s)\n", address, strings.Join(c.Prefixos, ", ")))
 		}
 		if len(onibus) > 10 {
 			text.WriteString(fmt.Sprintf("\n.. e mais %d circulando.", len(onibus)-10))

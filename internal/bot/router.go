@@ -82,7 +82,7 @@ func (r *Router) handleCallback(update tgbotapi.Update) {
 	data := update.CallbackQuery.Data
 	
 	// 1. Roteamento baseado em prefixos conhecidos
-	prefixes := []string{"stop_", "sentido_", "gsentido_", "select_group_"}
+	prefixes := []string{"stop_", "sentido_", "gsentido_", "select_group_", "broadcast_optout"}
 	for _, prefix := range prefixes {
 		if strings.HasPrefix(data, prefix) {
 			if h, ok := r.handlers[prefix]; ok {

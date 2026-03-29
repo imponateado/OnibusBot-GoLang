@@ -38,6 +38,7 @@ func (t *TelegramBot) setBotCommands() {
 		{Command: "start", Description: "Iniciar o bot e ver instruções"},
 		{Command: "grupos", Description: "Listar grupos de ônibus disponíveis"},
 		{Command: "lowmode", Description: "Alternar modo de economia de dados (apenas texto)"},
+		{Command: "silenciar", Description: "Reativar avisos de broadcast"},
 		{Command: "info", Description: "Ver versão e informações do bot"},
 	}
 
@@ -84,6 +85,12 @@ func (t *TelegramBot) NotifyMessage(chatID int64, text string, keyboard interfac
 		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData("❌ Parar tudo", fmt.Sprintf("stop_%d", chatID)),
+			),
+		)
+	} else if k, ok := keyboard.(string); ok && k == "broadcast_optout_button" {
+		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("🔕 Silenciar avisos", "broadcast_optout"),
 			),
 		)
 	} else if k, ok := keyboard.(tgbotapi.InlineKeyboardMarkup); ok {

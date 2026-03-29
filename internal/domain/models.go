@@ -83,11 +83,10 @@ type ParadaProperty struct {
 }
 
 type UserSubscription struct {
-	ChatID                   int64
-	Linha                    string
-	Sentido                  string
+	ChatID                    int64
+	Linha                     string
+	Sentido                   string
 	JaRecebeuPrimeiraMensagem bool
-	LowDataMode              bool
 }
 
 type BusGroup struct {

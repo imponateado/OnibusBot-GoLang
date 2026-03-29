@@ -17,11 +17,7 @@ func (h *LowModeHandler) Handle(bot *tgbotapi.BotAPI, update tgbotapi.Update) er
 		return nil
 	}
 
-	currentMode, err := h.Service.ToggleLowMode(msg.Chat.ID)
-	if err != nil {
-		bot.Send(tgbotapi.NewMessage(msg.Chat.ID, "❌ Você ainda não tem linhas inscritas."))
-		return nil
-	}
+	currentMode := h.Service.ToggleLowMode(msg.Chat.ID)
 
 	status := "Ativado (Apenas texto) 🐌"
 	if !currentMode {
@@ -30,3 +26,4 @@ func (h *LowModeHandler) Handle(bot *tgbotapi.BotAPI, update tgbotapi.Update) er
 	bot.Send(tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("Modo Econômico: %s", status)))
 	return nil
 }
+
