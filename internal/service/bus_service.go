@@ -372,7 +372,7 @@ func (s *BusService) NotifyBuses(chatID int64, onibus []domain.UltimaFeature, li
 		for _, key := range clusterKeys {
 			c := clusters[key]
 			address, _ := s.GetAddress(c.Lat, c.Lon)
-			text.WriteString(fmt.Sprintf("Próximo à parada %s\n   (Ônibus: %s)\n", address, strings.Join(c.Prefixos, ", ")))
+			text.WriteString(fmt.Sprintf("Próximo à parada %s\n   (Ônibus: %s)\n\n", address, strings.Join(c.Prefixos, ", ")))
 		}
 		if len(onibus) > 10 {
 			text.WriteString(fmt.Sprintf("\n.. e mais %d circulando.", len(onibus)-10))
