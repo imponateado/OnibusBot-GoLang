@@ -98,6 +98,7 @@ func (s *BusService) StartLoops() {
 
 	go s.notificationLoop()
 	go s.unsubscribeButtonLoop()
+	go s.expiryCheckLoop()
 	go s.dataUpdateLoop()
 }
 
@@ -216,9 +217,10 @@ func (s *BusService) Subscribe(chatID int64, linha, sentido string) error {
 	}
 
 	s.userSubscriptions = append(s.userSubscriptions, domain.UserSubscription{
-		ChatID:  chatID,
-		Linha:   linha,
-		Sentido: sentido,
+		ChatID:       chatID,
+		Linha:        linha,
+		Sentido:      sentido,
+		SubscribedAt: time.Now(),
 	})
 	subs := s.userSubscriptions
 	s.mu.Unlock()
@@ -386,6 +388,72 @@ func (s *BusService) NotifyBuses(chatID int64, onibus []domain.UltimaFeature, li
 		if len(onibus) > 10 {
 			s.notifier.NotifyMessage(chatID, fmt.Sprintf(".. e mais %d circulando.", len(onibus)-10), nil)
 		}
+	}
+}
+
+func (s *BusService) expiryCheckLoop() {
+	ticker := time.NewTicker(5 * time.Minute)
+	for range ticker.C {
+		s.checkExpiredSubscriptions()
+	}
+}
+
+func (s *BusService) checkExpiredSubscriptions() {
+	if s.notifier == nil {
+		return
+	}
+
+	now := time.Now()
+	s.mu.Lock()
+
+	var toWarn []domain.UserSubscription
+	var toRemove []domain.UserSubscription
+	var remaining []domain.UserSubscription
+
+	for i := range s.userSubscriptions {
+		sub := s.userSubscriptions[i]
+		age := now.Sub(sub.SubscribedAt)
+
+		if age >= 2*time.Hour {
+			toRemove = append(toRemove, sub)
+		} else if age >= 1*time.Hour && !sub.ExpiryWarned {
+			s.userSubscriptions[i].ExpiryWarned = true
+			toWarn = append(toWarn, s.userSubscriptions[i])
+			remaining = append(remaining, s.userSubscriptions[i])
+		} else {
+			remaining = append(remaining, sub)
+		}
+	}
+
+	s.userSubscriptions = remaining
+	subs := s.userSubscriptions
+	s.mu.Unlock()
+
+	if len(toWarn) > 0 || len(toRemove) > 0 {
+		s.subsRepo.Save(subs)
+	}
+
+	// Avisar quem está há 1 hora
+	warnedChats := make(map[int64]bool)
+	for _, sub := range toWarn {
+		if !warnedChats[sub.ChatID] {
+			warnedChats[sub.ChatID] = true
+			s.notifier.NotifyMessage(sub.ChatID,
+				"⚠️ Você está rastreando ônibus há mais de *1 hora*.\n\nO rastreamento será encerrado automaticamente em mais 1 hora.\nClique abaixo para parar agora:",
+				"stop_button")
+		}
+	}
+
+	// Remover quem está há 2 horas
+	removedChats := make(map[int64]int)
+	for _, sub := range toRemove {
+		removedChats[sub.ChatID]++
+	}
+	for chatID, count := range removedChats {
+		log.Printf("[INFO] Auto-removendo %d inscrições expiradas do chat %d", count, chatID)
+		s.notifier.NotifyMessage(chatID,
+			fmt.Sprintf("⏰ Rastreamento encerrado automaticamente após 2 horas. (%d linhas removidas)\n\nVocê pode se inscrever novamente a qualquer momento!", count),
+			nil)
 	}
 }
 

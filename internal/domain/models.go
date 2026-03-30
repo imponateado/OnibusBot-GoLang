@@ -87,6 +87,8 @@ type UserSubscription struct {
 	Linha                     string
 	Sentido                   string
 	JaRecebeuPrimeiraMensagem bool
+	SubscribedAt              time.Time
+	ExpiryWarned              bool
 }
 
 type BusGroup struct {
