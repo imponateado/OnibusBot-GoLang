@@ -39,6 +39,7 @@ func (t *TelegramBot) setBotCommands() {
 		{Command: "grupos", Description: "Listar grupos de ônibus disponíveis"},
 		{Command: "lowmode", Description: "Alternar modo de economia de dados (apenas texto)"},
 		{Command: "silenciar", Description: "Reativar avisos de broadcast"},
+		{Command: "feedback", Description: "Enviar sugestão ou reportar problema"},
 		{Command: "info", Description: "Ver versão e informações do bot"},
 	}
 

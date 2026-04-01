@@ -50,6 +50,7 @@ func Run() {
 	router.Register("/grupos", &handlers.GroupsHandler{Service: busService})
 	router.Register("/lowmode", &handlers.LowModeHandler{Service: busService})
 	router.Register("/silenciar", &handlers.SilenciarHandler{BroadcastService: broadcastService})
+	router.Register("/feedback", &handlers.FeedbackHandler{})
 	
 	// Prefix-based handlers
 	callbackHandler := &handlers.CallbackHandler{Service: busService}
