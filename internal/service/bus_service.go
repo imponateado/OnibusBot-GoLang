@@ -14,7 +14,6 @@ import (
 
 type BusProvider interface {
 	GetLinhasDeOnibus() (*domain.UltimaPosicao, error)
-	GetUltimaPosicaoFrota() (*domain.UltimaPosicao, error)
 	GetParadasDeOnibus() (*domain.ParadasDeOnibus, error)
 }
 

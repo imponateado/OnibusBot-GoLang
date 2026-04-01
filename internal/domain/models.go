@@ -13,11 +13,6 @@ type PointGeometry struct {
 	Coordinates []float64 `json:"coordinates"`
 }
 
-type LineStringGeometry struct {
-	Type        string      `json:"type"`
-	Coordinates [][]float64 `json:"coordinates"`
-}
-
 type UltimaPosicao struct {
 	Type           string          `json:"type"`
 	Features       []UltimaFeature `json:"features"`
@@ -47,23 +42,6 @@ type UltimaProperty struct {
 	DataRegistro string  `json:"dataregistro"`
 	IMEI         string  `json:"imei"`
 	Sentido      string  `json:"sentido"`
-}
-
-type LinhasDeOnibus struct {
-	Type     string          `json:"type"`
-	Features []LinhasFeature `json:"features"`
-}
-
-type LinhasFeature struct {
-	Type       string             `json:"type"`
-	ID         string             `json:"id"`
-	Geometry   LineStringGeometry `json:"geometry"`
-	Properties LinhasProperty     `json:"properties"`
-}
-
-type LinhasProperty struct {
-	ID    int    `json:"id_linha"`
-	Linha string `json:"lin_sentido"`
 }
 
 type ParadasDeOnibus struct {
